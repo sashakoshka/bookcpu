@@ -35,3 +35,5 @@
 | d      | >>     |
 | e      | <<     |
 | f      | HALT   |
+
+`::` defines a label
