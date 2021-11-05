@@ -1,3 +1,18 @@
+# bookcpu
+
+`bookcpu` is a minimalist 16 instruction emulated cpu that I found in a
+textbook. This repository contains a program to load and run compatible
+binaries, and a program that allows you to compile such binaries using a
+symbolic language thats sort of kind of similar to assembly.
+
+There are plans in the works to:
+
+1. Support a slightly more powerful instruction set that will be derived from
+   the current one that still has a size of 16
+2. Port the derived instruction set to a redstone computer in Minecraft
+
+## Opcodes
+
 | Opcode | Operation   | Description
 | :----: | :---------- | :----------
 | 0      | LOAD X      | Load value of address to register
@@ -16,6 +31,8 @@
 | d      | IN X        | Waits for keypress, and stores the value in address
 | e      | OUT X       | Prints ascii char in address
 | f      | HALT        | Ends the program
+
+## Opcodes and Assembly Symbols
 
 | Opcode | Symbol |
 | :----: | :----- |
