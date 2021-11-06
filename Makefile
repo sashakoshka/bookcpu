@@ -8,6 +8,9 @@ bookcpu:
 bookcpu-test: clean bookcpu
 	bin/bookcpu images/echo
 
+bookcpu-test-mc: clean bookcpu
+	bin/bookcpu -mc images/echo-mc
+
 bkasm:
 	mkdir -p bin
 	$(CC) bkasm.c -o bin/bkasm $(WARN)

@@ -11,7 +11,9 @@ There are plans in the works to:
    the current one that still has a size of 16
 2. Port the derived instruction set to a redstone computer in Minecraft
 
-## Opcodes
+## Legacy Instruction Set
+
+### Opcodes
 
 | Opcode | Operation   | Description
 | :----: | :---------- | :----------
@@ -32,9 +34,9 @@ There are plans in the works to:
 | e      | OUT X       | Prints ascii char in address
 | f      | HALT        | Ends the program
 
-## Opcodes and Assembly Symbols
+### Opcodes and Assembly Symbols
 
-| Opcode | Symbol |
+| Opcode | Symbol 
 | :----: | :----- |
 | 0      | <-     |
 | 1      | ->     |
@@ -54,3 +56,56 @@ There are plans in the works to:
 | f      | HALT   |
 
 `::` defines a label
+
+## New Instruction Set
+The main reason for this new set is the inability of the current set to perform
+iterative operations. Basically, memory addresses have to be hardcoded - you
+can't access or manipulate the value at a memory address that is stored within
+another memory address. This makes it very difficult to do things like print out
+strings. The only way to accomplish this is to programatically overwrite
+instructions.
+
+To solve this issue, the HALT instruction was removed. In its place was put a
+load to pointer instruction. Basically, the machine now has a new register: the
+pointer. Any operation that deals with a memory address can specify the address
+as `FFF` (4095), and it will instead use the memory address specified by the
+pointer register.
+
+The instruction set was also reorganized into a sort of binary tree to make it
+easier for a Minecraft redstone computer to execute.
+
+To replace the functionality of the halt instruction, the machine should
+interpret a jump to `FFE` (4094) as a halt.
+
+It is my belief that the ability to create programs that can iterate over
+memory makes up for the loss of two memory cells.
+
+Aside from iteration, this opens up a whole new world of possibilites. Since
+jump instructions can also use the pointer register, a primitive operating
+system that utilizes cooperative multitasking to run more than one program at a
+time is theoretically possible.
+
+### New Opcodes
+
+| Opcode | Symbol | Description
+| :----: | :----- | :----------
+| 0      | *=     | Load x to pointer
+| 1      | <-     | Load x to register
+| 2      | ->     | Store register in x
+| 3      | xx     | Set x to 0
+| 4      | ++     | Increment x
+| 5      | --     | Decrement x
+| 6      | +=     | Add x to register
+| 7      | -=     | Subtract x from register
+| 8      | >>     | Read into x
+| 9      | <<     | Write x out
+| a      | ??     | Compare register and x
+| b      | go     | Jump to x
+| c      | if >   | Jump to x if greater than flag is set
+| d      | if <   | Jump to x if less than flag is set
+| e      | if =   | Jump to x if equals flag is set
+| f      | if !   | Jump to x if equals flag is unset
+
+- `::` defines a label
+- Putting `*` as the symbol name uses the address in the pointer register
+- Putting a `HALT` as the symbol name uses the address `FFE` (4094)
