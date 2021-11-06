@@ -11,6 +11,24 @@ There are plans in the works to:
    the current one that still has a size of 16
 2. Port the derived instruction set to a redstone computer in Minecraft
 
+## Usage
+`bookcpu [options] [image]`
+
+Putting a `--` denotes end of options. Any arg after this will be interpreted as
+the image path.
+
+### Options
+- `-m`: Enable minecraft instruction set
+- `-c`: Enable minecraft charset
+- `-x`: Read image file from stdin
+- `-d`: Enable debug logging
+- `-h`: SHow help
+
+## Image File Format
+Images are binary files that this program can execute. They can be up to 8192
+bytes (4096 16 bit memory cells) in size, and are loaded into the memory array
+at start up. The program counter starts execution from address 0.
+
 ## Legacy Instruction Set
 
 ### Opcodes

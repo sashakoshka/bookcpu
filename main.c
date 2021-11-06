@@ -17,6 +17,7 @@ int main(int argc, char **argv) {
     int altch:1;
     int stdin:1;
     int debug:1;
+    int help:1;
     char *path;
   } args;
 
@@ -34,6 +35,7 @@ int main(int argc, char **argv) {
         case 'c': args.altch     = 1; break;
         case 'x': args.stdin     = 1; break;
         case 'd': args.debug     = 1; break;
+        case 'h': args.help      = 1; break;
       }
     }
     // we have a filepath
@@ -42,6 +44,17 @@ int main(int argc, char **argv) {
       fprintf(stderr, "%s: ERR multiple image files given\n", argv[0]);
       goto error;
     }
+  }
+
+  if (args.help) {
+    printf("Usage: %s [options] [image]\n", argv[0]);
+    puts("Options:");
+    puts("  -m    Enable minecraft instruction set");
+    puts("  -c    Enable minecraft charset");
+    puts("  -x    Read image file from stdin");
+    puts("  -d    Enable debug logging");
+    puts("  -h    SHow help");
+    goto exit;
   }
 
   if (args.path == NULL && !args.stdin) {
