@@ -22,7 +22,7 @@ the image path.
 - `-c`: Enable minecraft charset
 - `-x`: Read image file from stdin
 - `-d`: Enable debug logging
-- `-h`: SHow help
+- `-h`: Show help
 
 ## Image File Format
 Images are binary files that this program can execute. They can be up to 8192
@@ -30,50 +30,35 @@ bytes (4096 16 bit memory cells) in size, and are loaded into the memory array
 at start up. The program counter starts execution from address 0.
 
 ## Legacy Instruction Set
+This is the original instruction set defined in the textbook.
 
 ### Opcodes
 
-| Opcode | Operation   | Description
-| :----: | :---------- | :----------
-| 0      | LOAD X      | Load value of address to register
-| 1      | STORE X     | Store value of register to address
-| 2      | CLEAR X     | Set value of address to zero
-| 3      | ADD X       | Adds the value of address to register
-| 4      | INCREMENT X | Increments the value in address
-| 5      | SUBTRACT X  | Subtracts the value of address from register
-| 6      | DECREMENT X | Decrements the value in address
-| 7      | COMPARE X   | Compares register and value of address
-| 8      | JUMP X      | Jumps to address
-| 9      | JUMPGT X    | Jumps if greater than flag is set
-| a      | JUMPEQ X    | Jumps if equal flag is set
-| b      | JUMPLT X    | Jumps if less than flag is set
-| c      | JUMPNEQ X   | Jumps if equal flag isn't set
-| d      | IN X        | Waits for keypress, and stores the value in address
-| e      | OUT X       | Prints ascii char in address
-| f      | HALT        | Ends the program
-
-### Opcodes and Assembly Symbols
-
-| Opcode | Symbol 
-| :----: | :----- |
-| 0      | <-     |
-| 1      | ->     |
-| 2      | xx     |
-| 3      | +=     |
-| 4      | ++     |
-| 5      | -=     |
-| 6      | --     |
-| 7      | ??     |
-| 8      | go     |
-| 9      | if >   |
-| a      | if =   |
-| b      | if <   |
-| c      | if !   |
-| d      | >>     |
-| e      | <<     |
-| f      | HALT   |
+| Opcode | Symbol | Description
+| :----: | :----- | :----------
+| 0      | <-     | Load value of address to register
+| 1      | ->     | Store value of register to address
+| 2      | xx     | Set value of address to zero
+| 3      | +=     | Adds the value of address to register
+| 4      | ++     | Increments the value in address
+| 5      | -=     | Subtracts the value of address from register
+| 6      | --     | Decrements the value in address
+| 7      | ??     | Compares register and value of address
+| 8      | go     | Jumps to address
+| 9      | if >   | Jumps if greater than flag is set
+| a      | if =   | Jumps if equal flag is set
+| b      | if <   | Jumps if less than flag is set
+| c      | if !   | Jumps if equal flag isn't set
+| d      | >>     | Waits for keypress, and stores the value in address
+| e      | <<     | Prints ascii char in address
+| f      | HALT   | Ends the program
 
 `::` defines a label
+
+Note - for the comparison operation, the memory cell always comes before the
+register. For example: if the memory cell is 8 and the register is 2, and the
+comparison operation is called. the greater than flag will be set to true. This
+also applies to the new instruction set.
 
 ## New Instruction Set
 The main reason for this new set is the inability of the current set to perform
