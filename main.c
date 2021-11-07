@@ -22,6 +22,7 @@ int main(int argc, char **argv) {
   } args;
 
   args.minecraft = 0;
+  args.altch     = 0;
   args.stdin     = 0;
   args.debug     = 0;
   args.path      = NULL;
@@ -53,7 +54,7 @@ int main(int argc, char **argv) {
     puts("  -c    Enable minecraft charset");
     puts("  -x    Read image file from stdin");
     puts("  -d    Enable debug logging");
-    puts("  -h    SHow help");
+    puts("  -h    Show help");
     goto exit;
   }
 

@@ -1,11 +1,13 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #define MEM_SIZE 4096
 
 typedef struct var {
   char name[16];
   u_int16_t addr;
+  u_int16_t size;
   u_int16_t value;
 } Var;
 
@@ -15,20 +17,72 @@ typedef struct oper {
   u_int16_t addr;
 } Oper;
 
+int readVarName(FILE *, int *, char *);
+
 int main(int argc, char **argv) {
+  // command line args
+  struct {
+    int minecraft:1;
+    int stdin:1;
+    int quiet:1;
+    int help:1;
+    char *inPath;
+    char *outPath;
+  } args;
+
+  args.minecraft = 0;
+  args.stdin     = 0;
+  args.quiet     = 0;
+  args.inPath    = NULL;
+  args.outPath   = NULL;
+  for (int i = 1, getSwitches = 1; i < argc; i++) {
+    char *ch = argv[i];
+    if (*ch == '-' && getSwitches) {
+      // this arg has 1 or more switches
+      while (*(++ch) != 0) switch (*ch) {
+        case '-': getSwitches    = 0; break;
+        case 'm': args.minecraft = 1; break;
+        case 'x': args.stdin     = 1; break;
+        case 'q': args.quiet     = 1; break;
+        case 'h': args.help      = 1; break;
+      }
+    }
+    // we have a filepath
+    else if (args.inPath == NULL) args.inPath = ch;
+    else args.outPath = ch;
+  }
+
+  if (args.help) {
+    printf("Usage: %s [options] [source] [output]\n", argv[0]);
+    puts("Options:");
+    puts("  -m    Enable minecraft instruction set");
+    puts("  -x    Read image file from stdin");
+    puts("  -q    Don't output anything");
+    puts("  -h    Show help");
+    return EXIT_SUCCESS;
+  }
+  
   if (argc < 3) {
     fprintf(stderr, "%s: please provide input and output files\n", argv[0]);
     return EXIT_FAILURE;
   }
 
-  printf("%s: compiling %s ===> %s\n", argv[0], argv[1], argv[2]);
+  if (!args.quiet)
+    printf("%s: compiling %s ===> %s\n", argv[0], argv[1], argv[2]);
   
-  //u_int16_t memory[MEM_SIZE] = {0};
   size_t varcount = 0,
          varsize  = 4;
   Var *vars = malloc(varsize * sizeof(Var));
 
-  FILE *in = fopen(argv[1], "r");
+  // open file
+  FILE *in = NULL;
+  if (args.stdin) in = stdin;
+  else            in = fopen(args.inPath, "r");
+
+  if (in == NULL) {
+    fprintf(stderr, "%s: ERR could not open file %s\n", argv[0], args.inPath);
+    return EXIT_FAILURE;
+  }
 
   // get variables
   int ch;
@@ -41,13 +95,8 @@ int main(int argc, char **argv) {
 
     // get var name
     Var *var = &(vars[varcount - 1]);
-    for (int i = 0; i < 15; i++) {
-      if (ch == EOF) goto premature_eof_err;
-      if (ch == ' ') break;
-      var->name[i] = ch;
-      var->name[i + 1] = 0;
-      ch = fgetc(in); // get next char
-    }
+    if (readVarName(in, &ch, var->name)) goto premature_eof_err;
+    var->size = 1;
 
     // skip whitespace
     while ((ch = fgetc(in)) == ' ' || ch == '\t');
@@ -75,18 +124,19 @@ int main(int argc, char **argv) {
 
     // skip trailing stuff
     while (ch != '\n' && ch != EOF) ch = fgetc(in);
-    
-    printf("got variable:\t[%s]\t[%03x]\n", var->name, var->value);
+
+    if (!args.quiet)
+      printf("got variable:\t[%s]\t[%03x]\n", var->name, var->value);
   }
 
   // go to start of new line
   while (ch != '\n' && ch != EOF) ch = fgetc(in);
-  printf("%s: data section terminated\n", argv[0]);
+  if (!args.quiet) printf("%s: data section terminated\n", argv[0]);
 
   // read operations
 
-  int opercount = 0,
-      opersize  = 16;
+  size_t opercount = 0,
+         opersize  = 16;
   Oper *opers = malloc(opersize * sizeof(Oper));
 
   while((ch = fgetc(in)) != EOF) {
@@ -172,29 +222,70 @@ int main(int argc, char **argv) {
       oper->opcode = opcode;
 
       if (opcode == 0xf)
+        // HALT does not take an address
         oper->var[0] = 0;
       else {
         // get var name
-        for (int i = 0; i < 15;) {
-          if (ch == EOF) goto premature_eof_err;
-          if (ch == ' ' || ch == '\t' || ch == '\n') break;
-          oper->var[i]   = ch;
-          oper->var[++i] = 0;
-          ch = fgetc(in); // get next char
-        }
+        if (readVarName(in, &ch, oper->var)) goto premature_eof_err;
       }
-      
-      printf("got operation:\t[%01x]\t[%s]\n", oper->opcode, oper->var);
+
+      if (!args.quiet)
+        printf("got operation:\t[%01x]\t[%s]\n", oper->opcode, oper->var);
     } else {
+      // label
+      if(++varcount > varsize) {
+        varsize *= 2;
+        vars = realloc(vars, varsize * sizeof(Var));
+      }
+      Var *label = &(vars[varcount - 1]);
+      if (readVarName(in, &ch, label->name)) goto premature_eof_err;
+      label->value = opercount;
+      label->size = 1;
       
+      if (!args.quiet)
+        printf("got label:\t[%s]\t[%03x]\n", label->name, label->value);
     }
 
     // skip trailing stuff
     while (ch != '\n' && ch != EOF) ch = fgetc(in);
 
   }
-  
-  printf("%s: program section terminated\n", argv[0]);
+
+  // close file
+  fclose(in);
+
+  if (!args.quiet)
+    printf("%s: program section terminated\n", argv[0]);
+
+  // figure out memory locations of variables
+  for (size_t i = 0, index = opercount; i < varcount; i++) {
+    vars[i].addr = index += vars[i].size;
+    if (!args.quiet)
+      printf("variable %s\treferences %04x\n", vars[i].name, vars[i].addr);
+  }
+
+  FILE *out = fopen(args.outPath, "w");
+  if (out == NULL) {
+    fprintf(stderr, "%s: ERR could not open file %s\n", argv[0], args.outPath);
+    return EXIT_FAILURE;
+  }
+
+  // build memory image
+  for (size_t i = 0; i < opercount; i++) {
+    Oper *oper = &opers[i];
+    // figure out what address it references
+    char *var = oper->var;
+    oper->addr = 0;
+    for (size_t j = 0; j < varcount; j++) {
+      if (strcmp(var, vars[j].name) == 0) {
+        oper->addr = vars[j].addr;
+      }
+    }
+    u_int16_t cell = (opers[i].opcode & 0xF) << 12 | (oper->addr & 0xFFF);
+    fwrite(&cell, sizeof(cell), 1, out);
+    if (!args.quiet)
+      printf("memory[%04x]: %04x\n", (u_int16_t)i, cell); 
+  }
   
   return EXIT_SUCCESS;
   
@@ -218,4 +309,15 @@ int main(int argc, char **argv) {
     argv[0], argv[1]
   );
   return EXIT_FAILURE;
+}
+
+int readVarName(FILE *src, int *ch, char *dest) {
+  for (int i = 0; i < 15; i++) {
+    if (*ch == EOF) return 1;
+    if (*ch == ' ' || *ch == '\t' || *ch == '\n') break;
+    dest[i] = *ch;
+    dest[i + 1] = 0;
+    *ch = fgetc(src); // get next char
+  }
+  return 0;
 }

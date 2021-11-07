@@ -1,5 +1,15 @@
-ch    041   
-index fF3
+h     048
+e     065
+l     06c
+o     06f
+!     021
+endl  00a
 ---
-<< ch
+<< h
+<< e
+<< l
+<< l
+<< o
+<< !
+<< endl
 HALT
