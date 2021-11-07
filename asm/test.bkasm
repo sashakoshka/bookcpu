@@ -1,15 +1,86 @@
-h     048
-e     065
-l     06c
-o     06f
-!     021
-endl  00a
+ch   0000
+excl 0000
+endl 000a
+esc  001b
+spc  0020
+!    0021
+H    0048
+m    006d
+.    002e
+I    0049
+d    0064
+o    006f
+n    006e
+'    0027
+t    0074
+l    006c
+i    0069
+k    006b
+e    0065
+y    0079
+u    0075
+r    0072
+t    0074
 ---
-<< h
-<< e
-<< l
-<< l
-<< o
-<< !
+:: start
+>> ch
+
+<- ch
+?? esc
+if = end
+
+<< ch
+
+?? !
+if ! notsassy
+<- !
+-> excl
+
+:: notsassy
+?? endl
+if ! start
+
+<- excl
+?? !
+xx excl
+if = tone
+
+<< H
+<< m
+<< m
+<< m
+<< .
+<< .
+<< .
 << endl
+go start
+
+:: tone
+<< I
+<< spc
+<< d
+<< o
+<< n
+<< '
+<< t
+<< spc
+<< l
+<< i
+<< k
+<< e
+<< spc
+<< y
+<< o
+<< u
+<< r
+<< spc
+<< t
+<< o
+<< n
+<< e
+<< .
+<< endl
+go start
+
+:: end
 HALT

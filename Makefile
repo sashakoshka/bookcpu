@@ -18,5 +18,11 @@ bkasm:
 bkasm-test: clean bkasm
 	bin/bkasm asm/test.bkasm images/test
 
+all: bookcpu bkasm
+
+all-test: clean all
+	bin/bkasm asm/test.bkasm images/test
+	bin/bookcpu images/test
+
 clean:
 	rm -f bin/*

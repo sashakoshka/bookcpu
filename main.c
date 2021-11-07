@@ -25,6 +25,7 @@ int main(int argc, char **argv) {
   args.altch     = 0;
   args.stdin     = 0;
   args.debug     = 0;
+  args.help      = 0;
   args.path      = NULL;
   for (int i = 1, getSwitches = 1; i < argc; i++) {
     char *ch = argv[i];
@@ -88,7 +89,7 @@ int main(int argc, char **argv) {
   int counter = 0;
   int flag_gt = 0, flag_eq = 0, flag_lt = 0;
 
-  while (counter < 32) {
+  while (counter < MEM_SIZE) {
     int opcode = memory[counter] >> 12;
     int addr   = memory[counter] & 0xFFF;
     if (args.debug) printf (

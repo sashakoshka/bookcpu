@@ -33,6 +33,7 @@ int main(int argc, char **argv) {
   args.minecraft = 0;
   args.stdin     = 0;
   args.quiet     = 0;
+  args.help      = 0;
   args.inPath    = NULL;
   args.outPath   = NULL;
   for (int i = 1, getSwitches = 1; i < argc; i++) {
@@ -56,13 +57,13 @@ int main(int argc, char **argv) {
     printf("Usage: %s [options] [source] [output]\n", argv[0]);
     puts("Options:");
     puts("  -m    Enable minecraft instruction set");
-    puts("  -x    Read image file from stdin");
+    puts("  -x    Read source file from stdin");
     puts("  -q    Don't output anything");
     puts("  -h    Show help");
     return EXIT_SUCCESS;
   }
   
-  if (argc < 3) {
+  if ((args.inPath == NULL && !args.stdin) || args.outPath == NULL) {
     fprintf(stderr, "%s: please provide input and output files\n", argv[0]);
     return EXIT_FAILURE;
   }
@@ -97,13 +98,14 @@ int main(int argc, char **argv) {
     Var *var = &(vars[varcount - 1]);
     if (readVarName(in, &ch, var->name)) goto premature_eof_err;
     var->size = 1;
+    var->addr = 0xFFF;
 
     // skip whitespace
     while ((ch = fgetc(in)) == ' ' || ch == '\t');
 
-    int mult =  256;
+    int mult = 4096;
     var->value = 0;
-    for (int i = 0; i < 3; i++) {
+    for (int i = 0; i < 4; i++) {
       // if we reach whitespace its time to stop!!!
       if(ch == ' ' || ch == '\t' || ch == '\n') break;
       // only accept valid hex chars
@@ -178,7 +180,7 @@ int main(int argc, char **argv) {
         else goto invalid_oper_err;
         break;
       case 'g':
-        if ((ch = fgetc(in)) == 'g') opcode = 0x8;
+        if ((ch = fgetc(in)) == 'o') opcode = 0x8;
         else goto invalid_oper_err;
         break;
       case 'i':
@@ -239,11 +241,11 @@ int main(int argc, char **argv) {
       }
       Var *label = &(vars[varcount - 1]);
       if (readVarName(in, &ch, label->name)) goto premature_eof_err;
-      label->value = opercount;
       label->size = 1;
+      label->addr = opercount;
       
       if (!args.quiet)
-        printf("got label:\t[%s]\t[%03x]\n", label->name, label->value);
+        printf("got label:\t[%s]\t[%03x]\n", label->name, label->addr);
     }
 
     // skip trailing stuff
@@ -259,9 +261,12 @@ int main(int argc, char **argv) {
 
   // figure out memory locations of variables
   for (size_t i = 0, index = opercount; i < varcount; i++) {
-    vars[i].addr = index += vars[i].size;
-    if (!args.quiet)
-      printf("variable %s\treferences %04x\n", vars[i].name, vars[i].addr);
+    if (vars[i].addr == 0xFFF) {
+      vars[i].addr = index;
+      index += vars[i].size;
+      if (!args.quiet)
+        printf("variable %s\treferences %04x\n", vars[i].name, vars[i].addr);
+    }
   }
 
   FILE *out = fopen(args.outPath, "w");
@@ -270,7 +275,7 @@ int main(int argc, char **argv) {
     return EXIT_FAILURE;
   }
 
-  // build memory image
+  // write program section
   for (size_t i = 0; i < opercount; i++) {
     Oper *oper = &opers[i];
     // figure out what address it references
@@ -282,7 +287,17 @@ int main(int argc, char **argv) {
       }
     }
     u_int16_t cell = (opers[i].opcode & 0xF) << 12 | (oper->addr & 0xFFF);
-    fwrite(&cell, sizeof(cell), 1, out);
+    fputc(cell >> 8, out);
+    fputc(cell & 0xFF, out);
+    if (!args.quiet)
+      printf("memory[%04x]: %04x\n", (u_int16_t)i, cell); 
+  }
+
+  // write data section
+  for (size_t i = 0; i < varcount; i++) {
+    u_int16_t cell = vars[i].value;
+    fputc(cell >> 8, out);
+    fputc(cell & 0xFF, out);
     if (!args.quiet)
       printf("memory[%04x]: %04x\n", (u_int16_t)i, cell); 
   }
@@ -305,7 +320,7 @@ int main(int argc, char **argv) {
 
   invalid_oper_err:
   fprintf (
-    stderr, "%s: ERR opcode in %s\n",
+    stderr, "%s: ERR unknown opcode in %s\n",
     argv[0], argv[1]
   );
   return EXIT_FAILURE;
