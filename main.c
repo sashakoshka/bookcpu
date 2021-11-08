@@ -93,7 +93,7 @@ int main(int argc, char **argv) {
     int opcode = memory[counter] >> 12;
     int addr   = memory[counter] & 0xFFF;
     if (args.debug) printf (
-      "debug: %03X: %01X %03X [%04X] %04X %04X %01X %01X %01X\n",
+      "debug: %03X: %01X %03X = %04X r%04X *%04X >%01X =%01X <%01X\n",
       counter, opcode, addr, memory[addr], reg, ptr, flag_gt, flag_eq, flag_lt
     );
 
@@ -115,37 +115,26 @@ int main(int argc, char **argv) {
           int ch = _getch();
           if (ch > 127) ch = 0;
           else if (ch >= 'a' && ch <= 'z') ch -= 32;
-          if (args.debug) printf (
-            "debug: got char %c which is %02x -> %02X\n", ch, ch, asciiToMc[ch]
-          );
           switch (ch) {
-            default:
-              memory[addr] = asciiToMc[ch];
-              break;
+            default: memory[addr] = asciiToMc[ch]; break;
           }
+          if (args.debug) printf (
+            "debug: got char %c which is %02x -> %02X\n", ch, ch, memory[addr]
+          );
         } break;
         case 0x9: {
           int ch = memory[addr] & 0x3F;
           if (ch < 6) {
             switch (ch) {
-              case 1:
-                fputs("\033[2J", stdout);
-                break;
-              case 2:
-                fputs("\033[1A", stdout);
-                break;
-              case 3:
-                fputs("\033[1B", stdout);
-                break;
-              case 4:
-                fputs("\033[1D", stdout);
-                break;
-              case 5:
-                fputs("\033[1C", stdout);
-                break;
-              default: putchar(0);
+              case 0: putchar(0);   break;
+              case 1: putchar(EOF); break;
+              case 2: fputs("\033[1A", stdout); break;
+              case 3: fputs("\033[1B", stdout); break;
+              case 4: fputs("\033[1D", stdout); break;
+              case 5: fputs("\033[1C", stdout); break;
             }
-          } else putchar(mcToAscii[ch]);
+          } else if (ch < 256 )putchar(mcToAscii[ch]);
+          else putchar(0);
         } break;
         case 0xa:
           flag_gt = memory[addr] >  reg;
@@ -155,8 +144,8 @@ int main(int argc, char **argv) {
         case 0xb: counter = addr - 1;  break;
         
         case 0xc: if(flag_gt)  counter = addr - 1; break;
-        case 0xd: if(flag_eq)  counter = addr - 1; break;
-        case 0xe: if(flag_lt)  counter = addr - 1; break;
+        case 0xd: if(flag_lt)  counter = addr - 1; break;
+        case 0xe: if(flag_eq)  counter = addr - 1; break;
         case 0xf: if(!flag_eq) counter = addr - 1; break; 
       }
     } else {

@@ -23,6 +23,10 @@ all: bookcpu bkasm
 all-test: clean all
 	bin/bkasm asm/test.bkasm images/test
 	bin/bookcpu images/test
+	
+all-test-mc: clean all
+	bin/bkasm -m asm/test-mc.bkasm images/test-mc
+	bin/bookcpu -mcd images/test-mc
 
 clean:
 	rm -f bin/*

@@ -149,47 +149,50 @@ int main(int argc, char **argv) {
     // get opcode from symbol
     u_int8_t opcode;
     switch (ch) {
+      case '*':
+        if ((ch = fgetc(in)) == '=' && args.minecraft) opcode = 0x7;
+        else goto invalid_oper_err;
       case '<':
         if ((ch = fgetc(in)) == '-') {
-          opcode = 0x0;
+          opcode = args.minecraft ? 0x1 : 0x0;
         } else if (ch == '<') {
-          opcode = 0xe;
+          opcode = args.minecraft ? 0x9 : 0xe;
         } else goto invalid_oper_err;
         break;
       case '-':
         switch (fgetc(in)) {
-          case '>': opcode = 0x1; break;
-          case '=': opcode = 0x5; break;
-          case '-': opcode = 0x6; break;
+          case '>': opcode = args.minecraft ? 0x2 : 0x1; break;
+          case '=': opcode = args.minecraft ? 0x7 : 0x5; break;
+          case '-': opcode = args.minecraft ? 0x5 : 0x6; break;
           default: goto invalid_oper_err;
         }
         break;
       case 'x':
-        if ((ch = fgetc(in)) == 'x') opcode = 0x2;
+        if ((ch = fgetc(in)) == 'x') opcode = args.minecraft ? 0x3 : 0x2;
         else goto invalid_oper_err;
         break;
       case '+':
         if ((ch = fgetc(in)) == '=') {
-          opcode = 0x3;
+          opcode = args.minecraft ? 0x6 : 0x3;
         } else if (ch == '+') {
           opcode = 0x4;
         } else goto invalid_oper_err;
         break;
       case '?':
-        if ((ch = fgetc(in)) == '?') opcode = 0x7;
+        if ((ch = fgetc(in)) == '?') opcode = args.minecraft ? 0xa : 0x7;
         else goto invalid_oper_err;
         break;
       case 'g':
-        if ((ch = fgetc(in)) == 'o') opcode = 0x8;
+        if ((ch = fgetc(in)) == 'o') opcode = args.minecraft ? 0xb : 0x8;
         else goto invalid_oper_err;
         break;
       case 'i':
         if ((ch = fgetc(in)) == 'f' && (ch = fgetc(in)) == ' ') {
           switch (fgetc(in)) {
-            case '>': opcode = 0x9; break;
-            case '=': opcode = 0xa; break;
-            case '<': opcode = 0xb; break;
-            case '!': opcode = 0xc; break;
+            case '>': opcode = args.minecraft ? 0xc : 0x9; break;
+            case '=': opcode = args.minecraft ? 0xe : 0xa; break;
+            case '<': opcode = args.minecraft ? 0xd : 0xb; break;
+            case '!': opcode = args.minecraft ? 0xf : 0xc; break;
             default: goto invalid_oper_err;
           }
         } else goto invalid_oper_err;
@@ -199,11 +202,12 @@ int main(int argc, char **argv) {
         else goto invalid_oper_err;
         break;
       case '>':
-        if ((ch = fgetc(in)) == '>') opcode = 0xd;
+        if ((ch = fgetc(in)) == '>') opcode = args.minecraft ? 0x8 : 0xd;
         else goto invalid_oper_err;
         break;
       case 'H':
         if (
+          !args.minecraft         &&
           (ch = fgetc(in)) == 'A' &&
           (ch = fgetc(in)) == 'L' &&
           (ch = fgetc(in)) == 'T'
@@ -281,7 +285,11 @@ int main(int argc, char **argv) {
     // figure out what address it references
     char *var = oper->var;
     oper->addr = 0;
-    for (size_t j = 0; j < varcount; j++) {
+    if (args.minecraft && strcmp(var, "*") == 0) {
+      oper->addr = 0xFFF;
+    } else if (args.minecraft && strcmp(var, "HALT") == 0) {
+      oper->addr = 0xFFE;
+    } for (size_t j = 0; j < varcount; j++) {
       if (strcmp(var, vars[j].name) == 0) {
         oper->addr = vars[j].addr;
       }

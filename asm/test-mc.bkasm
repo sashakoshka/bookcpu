@@ -1,33 +1,32 @@
 ch   0000
 excl 0000
-endl 000a
-esc  0004
-spc  0020
-!    0021
-H    0048
-m    006d
-.    002e
-I    0049
-d    0064
-o    006f
-n    006e
-'    0027
-t    0074
-l    006c
-i    0069
-k    006b
-e    0065
-y    0079
-u    0075
-r    0072
-t    0074
+endl 0007
+eof  0001
+spc  0008
+!    000a
+h    0021
+m    0026
+.    000c
+i    0022
+d    001d
+o    0028
+n    0027
+'    0009
+t    002d
+l    0025
+k    0024
+e    001e
+y    0032
+u    002e
+r    002b
+t    002d
 ---
 :: start
 >> ch
 
 <- ch
-?? esc
-if = end
+?? eof
+if = HALT
 
 << ch
 
@@ -45,7 +44,7 @@ if ! start
 xx excl
 if = tone
 
-<< H
+<< h
 << m
 << m
 << m
@@ -56,7 +55,7 @@ if = tone
 go start
 
 :: tone
-<< I
+<< i
 << spc
 << d
 << o
@@ -82,5 +81,4 @@ go start
 << endl
 go start
 
-:: end
-HALT
+go HALT
