@@ -1,6 +1,7 @@
 ch   0000
 excl 0000
 endl 0007
+chptr &ch
 eof  0001
 spc  0008
 !    000a

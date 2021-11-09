@@ -1,0 +1,23 @@
+hello H
+.     E
+.     L
+.     L
+.     O
+.     x0007
+null  x0000
+ch    &hello
+---
+
+# this will not build. this is planned functionality (in the data section).
+
+:: start
+  # check if char is null
+    *= ch
+    <- PTR
+    ?? null
+    if = HALT
+
+  # output char
+    << PTR
+    ++ ch
+go start

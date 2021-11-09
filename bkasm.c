@@ -5,10 +5,11 @@
 #define MEM_SIZE 4096
 
 typedef struct var {
-  char name[16];
   u_int16_t addr;
-  u_int16_t size;
+  u_int16_t size; // unused as of now
   u_int16_t value;
+  char name[16];
+  char pointsTo[16];
 } Var;
 
 typedef struct oper {
@@ -69,7 +70,7 @@ int main(int argc, char **argv) {
   }
 
   if (!args.quiet)
-    printf("%s: compiling %s ===> %s\n", argv[0], argv[1], argv[2]);
+    printf("%s: compiling %s ===> %s\n", argv[0], args.inPath, args.outPath);
   
   size_t varcount = 0,
          varsize  = 4;
@@ -97,38 +98,52 @@ int main(int argc, char **argv) {
     // get var name
     Var *var = &(vars[varcount - 1]);
     if (readVarName(in, &ch, var->name)) goto premature_eof_err;
+    if (var->name[0] == '.') var->name[0] = 0;
     var->size = 1;
     var->addr = 0xFFF;
+    var->pointsTo[0] = 0;
 
     // skip whitespace
     while ((ch = fgetc(in)) == ' ' || ch == '\t');
 
-    int mult = 4096;
-    var->value = 0;
-    for (int i = 0; i < 4; i++) {
-      // if we reach whitespace its time to stop!!!
-      if(ch == ' ' || ch == '\t' || ch == '\n') break;
-      // only accept valid hex chars
-      if(ch < 47 || (ch > 57 && ch < 65 ) || (ch > 70 && ch < 97) || ch > 102) {
-        goto invalid_hex_err;
-        break;
-      }
-      
-           if (ch <= 57) ch -= 48;
-      else if (ch <= 90) ch -= 55;
-      else               ch -= 87;
-      ch *= mult;
-      var->value += ch;
-      
-      mult /= 16;
+    if (args.minecraft && ch == '&') {
+      // this is a pointer
       ch = fgetc(in);
+      if (readVarName(in, &ch, var->pointsTo)) goto premature_eof_err;
+      var->value = 0;
+    } else {
+      // get hex value
+      int mult = 4096;
+      var->value = 0;
+      for (int i = 0; i < 4; i++) {
+        // if we reach whitespace its time to stop!!!
+        if(ch == ' ' || ch == '\t' || ch == '\n') break;
+        // only accept valid hex chars
+        if(ch < 47 || (ch > 57 && ch < 65 ) || (ch > 70 && ch < 97) || ch > 102) {
+          goto invalid_hex_err;
+          break;
+        }
+        
+             if (ch <= 57) ch -= 48;
+        else if (ch <= 90) ch -= 55;
+        else               ch -= 87;
+        ch *= mult;
+        var->value += ch;
+        
+        mult /= 16;
+        ch = fgetc(in);
+      }
     }
 
     // skip trailing stuff
     while (ch != '\n' && ch != EOF) ch = fgetc(in);
 
-    if (!args.quiet)
-      printf("got variable:\t[%s]\t[%03x]\n", var->name, var->value);
+    if (!args.quiet) {
+      printf("got variable:\t[%s]\t", var->name);
+      if (var->pointsTo[0] != 0) printf("[&%s]", var->pointsTo);
+      else                       printf("[%03x]", var->value);
+      putchar('\n');
+    }
   }
 
   // go to start of new line
@@ -143,15 +158,28 @@ int main(int argc, char **argv) {
 
   while((ch = fgetc(in)) != EOF) {
     // skip beginning whitespace, if there is any.
-    while((ch == ' ' || ch == '\t' || ch == '\n') && ch != EOF)
+    while ((ch == ' ' || ch == '\t' || ch == '\n') && ch != EOF)
       ch = fgetc(in);
+
+    // skip line if this is a comment
+    if (ch == '#') {
+      if (!args.quiet)
+        printf("comment: ");
+      while (ch != '\n' && ch != EOF) {
+        if (!args.quiet) putchar(ch);
+        ch = fgetc(in);
+      }
+      if (!args.quiet) putchar('\n');
+      continue;
+    }
 
     // get opcode from symbol
     u_int8_t opcode;
     switch (ch) {
       case '*':
-        if ((ch = fgetc(in)) == '=' && args.minecraft) opcode = 0x7;
+        if ((ch = fgetc(in)) == '=' && args.minecraft) opcode = 0x0;
         else goto invalid_oper_err;
+        break;
       case '<':
         if ((ch = fgetc(in)) == '-') {
           opcode = args.minecraft ? 0x1 : 0x0;
@@ -214,6 +242,8 @@ int main(int argc, char **argv) {
         ) opcode = 0xf;
         else goto invalid_oper_err;
         break;
+      default:
+        goto invalid_oper_err;
     }
     
     // skip whitespace
@@ -265,11 +295,25 @@ int main(int argc, char **argv) {
 
   // figure out memory locations of variables
   for (size_t i = 0, index = opercount; i < varcount; i++) {
-    if (vars[i].addr == 0xFFF) {
-      vars[i].addr = index;
-      index += vars[i].size;
+    Var *var = &vars[i];
+    if (var->addr == 0xFFF) {
+      var->addr = index;
+      index += var->size;
       if (!args.quiet)
-        printf("variable %s\treferences %04x\n", vars[i].name, vars[i].addr);
+        printf("variable %s\tinhabits %03x", var->name, var->addr);
+      // if var is a pointer, find what it points to
+      if (var->pointsTo[0] != 0) {
+        for (size_t j = 0; j < varcount; j++) {
+          if (strcmp(var->pointsTo, vars[j].name) == 0) {
+            if (vars[j].addr == 0xFFF)
+              goto invalid_symbol_err;
+            else
+              var->value = vars[j].addr;
+          }
+        }
+        printf(" and points to %03x", var->value);
+      }
+      putchar('\n');
     }
   }
 
@@ -279,17 +323,21 @@ int main(int argc, char **argv) {
     return EXIT_FAILURE;
   }
 
+  u_int16_t memaddr = 0;
+
   // write program section
   for (size_t i = 0; i < opercount; i++) {
     Oper *oper = &opers[i];
     // figure out what address it references
     char *var = oper->var;
     oper->addr = 0;
-    if (args.minecraft && strcmp(var, "*") == 0) {
+    // special symbols
+    if (args.minecraft && strcmp(var, "PTR") == 0) {
       oper->addr = 0xFFF;
     } else if (args.minecraft && strcmp(var, "HALT") == 0) {
       oper->addr = 0xFFE;
     } for (size_t j = 0; j < varcount; j++) {
+      // find which var
       if (strcmp(var, vars[j].name) == 0) {
         oper->addr = vars[j].addr;
       }
@@ -298,16 +346,17 @@ int main(int argc, char **argv) {
     fputc(cell >> 8, out);
     fputc(cell & 0xFF, out);
     if (!args.quiet)
-      printf("memory[%04x]: %04x\n", (u_int16_t)i, cell); 
+      printf("memory[%04x]: %04x\n", memaddr++, cell); 
   }
 
   // write data section
   for (size_t i = 0; i < varcount; i++) {
     u_int16_t cell = vars[i].value;
+    // swap values. some bizarre endianness stuff.
     fputc(cell >> 8, out);
     fputc(cell & 0xFF, out);
     if (!args.quiet)
-      printf("memory[%04x]: %04x\n", (u_int16_t)i, cell); 
+      printf("memory[%04x]: %04x\n", memaddr++, cell); 
   }
   
   return EXIT_SUCCESS;
@@ -315,21 +364,27 @@ int main(int argc, char **argv) {
   premature_eof_err:
   fprintf (
     stderr, "%s: ERR reached end of file before program start in %s\n",
-    argv[0], argv[1]
+    argv[0], args.inPath
   );
   return EXIT_FAILURE;
 
   invalid_hex_err:
   fprintf (
     stderr, "%s: ERR invalid hex digit in %s: [%c]\n",
-    argv[0], argv[1], ch
+    argv[0], args.inPath, ch
   );
   return EXIT_FAILURE;
 
   invalid_oper_err:
   fprintf (
     stderr, "%s: ERR unknown opcode in %s\n",
-    argv[0], argv[1]
+    argv[0], args.inPath
+  );
+
+  invalid_symbol_err:
+  fprintf (
+    stderr, "%s: ERR unknown symbol in %s\n",
+    argv[0], args.inPath
   );
   return EXIT_FAILURE;
 }

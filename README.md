@@ -109,6 +109,13 @@ time is theoretically possible.
 | e      | if =   | Jump to x if equals flag is set
 | f      | if !   | Jump to x if equals flag is unset
 
+- In the variable section, you can specify a variable's initial value as
+  `&varname` to initialize it as a pointer to `varname`
+- Also in the variable section, you can initialize a variable as an array by
+  listing items as variables under it with `.` at the start of their names.
+  These variables will be treated as if they have no name, and since they are
+  stored sequentially, they will effectively be array items.
 - `::` defines a label
-- Putting `*` as the symbol name uses the address in the pointer register
+- Putting `PTR` as the symbol name uses the address in the pointer register
 - Putting a `HALT` as the symbol name uses the address `FFE` (4094)
+- Putting a `*` before the symbol name dereferences that symbol (not done)

@@ -1,4 +1,12 @@
-
+ch   0000
+num0 0000
+num1 0000
+op   0000
+numoffset 0010
 ---
 
-HALT
+>> ch
+<- ch
+-= numoffset
+-> ch
+<< ch
