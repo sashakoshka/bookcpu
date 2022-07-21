@@ -27,16 +27,11 @@ int main (int argc, char **argv) {
                 int stdin;
                 int quiet;
                 int help;
+                int decimal;
                 char *inPath;
                 char *outPath;
-        } args;
-
-        args.minecraft = 0;
-        args.stdin     = 0;
-        args.quiet     = 0;
-        args.help      = 0;
-        args.inPath    = NULL;
-        args.outPath   = NULL;
+        } args = { 0 };
+        
         for (int i = 1, getSwitches = 1; i < argc; i++) {
                 char *ch = argv[i];
                 if (*ch == '-' && getSwitches) {
@@ -47,6 +42,7 @@ int main (int argc, char **argv) {
                         case 'x': args.stdin     = 1; break;
                         case 'q': args.quiet     = 1; break;
                         case 'h': args.help      = 1; break;
+                        case 'd': args.decimal   = 1; break;
                         }
                 }
                 // we have a filepath
@@ -61,6 +57,7 @@ int main (int argc, char **argv) {
                 puts("  -x    Read source file from stdin");
                 puts("  -q    Don't output anything");
                 puts("  -h    Show help");
+                puts("  -d    Write image as newline separated decimal numbers");
                 return EXIT_SUCCESS;
         }
 
@@ -346,32 +343,45 @@ int main (int argc, char **argv) {
                 // figure out what address it references
                 char *var = oper->var;
                 oper->addr = 0;
+
                 // special symbols
                 if (args.minecraft && strcmp(var, "PTR") == 0) {
                         oper->addr = 0xFFF;
                 } else if (args.minecraft && strcmp(var, "HALT") == 0) {
                         oper->addr = 0xFFE;
-                } for (size_t j = 0; j < varcount; j++) {
+                }
+
+                for (size_t j = 0; j < varcount; j++) {
                         // find which var
                         if (strcmp(var, vars[j].name) == 0) {
                                 oper->addr = vars[j].addr;
                         }
                 }
                 u_int16_t cell = (opers[i].opcode & 0xF) << 12 | (oper->addr & 0xFFF);
-                fputc(cell >> 8, out);
-                fputc(cell & 0xFF, out);
-                if (!args.quiet)
-                        printf("memory[%04x]: %04x\n", memaddr++, cell); 
+
+                if (args.decimal) {
+                        fprintf(out, "%i\n", cell);
+                } else {
+                        fputc(cell >> 8, out);
+                        fputc(cell & 0xFF, out);
+                        if (!args.quiet)
+                                printf("memory[%04x]: %04x\n", memaddr++, cell); 
+                }
         }
 
         // write data section
         for (size_t i = 0; i < varcount; i++) {
                 u_int16_t cell = vars[i].value;
-                // swap values. some bizarre endianness stuff.
-                fputc(cell >> 8, out);
-                fputc(cell & 0xFF, out);
-                if (!args.quiet)
-                        printf("memory[%04x]: %04x\n", memaddr++, cell); 
+
+                if (args.decimal) {
+                        fprintf(out, "%i\n", cell);
+                } else {
+                        // swap values. some bizarre endianness stuff.
+                        fputc(cell >> 8, out);
+                        fputc(cell & 0xFF, out);
+                        if (!args.quiet)
+                                printf("memory[%04x]: %04x\n", memaddr++, cell); 
+                }
         }
 
         return EXIT_SUCCESS;
