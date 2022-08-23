@@ -31,7 +31,7 @@ static struct {
 } machine = { 0 };
 
 // function prototypes
-u_int16_t _getch();
+u_int16_t readInput(void);
 int parseCommandLineArgs(int, char**);
 
 int main (int argc, char **argv) {
@@ -109,7 +109,7 @@ int main (int argc, char **argv) {
 			case 0x7: machine.reg -= machine.memory[addr]; break;
 
 			case 0x8: {
-				int ch = _getch();
+				int ch = readInput();
 
 				// convert ASCII to minecraft charset
 				if (ch > 127) {
@@ -173,7 +173,7 @@ int main (int argc, char **argv) {
 			case 0xa: if(machine.flag_eq)  { machine.counter = addr - 1; } break;
 			case 0xb: if(machine.flag_lt)  { machine.counter = addr - 1; } break;
 			case 0xc: if(!machine.flag_eq) { machine.counter = addr - 1; } break;
-			case 0xd: machine.memory[addr] = _getch();     break;
+			case 0xd: machine.memory[addr] = readInput();     break;
 			case 0xe: putchar(machine.memory[addr]);       break;
 			case 0xf: goto exit;
 			}
@@ -221,18 +221,24 @@ int parseCommandLineArgs (int argc, char **argv) {
 	return 0;
 }
 
-u_int16_t _getch() {
+// readInput
+// Reads one character of input from stdin. It disables line buffering so that
+// if the user types a key, it is registered instantly.
+u_int16_t readInput() {
+	u_int16_t ch;
+	
 	struct termios old;
 	tcgetattr(0, &old);
-	old.c_lflag &= ~ICANON;
-	old.c_lflag &= ~ECHO;
+	old.c_lflag &= (unsigned int)(~ICANON);
+	old.c_lflag &= (unsigned int)(~ECHO);
 	old.c_cc[VMIN] = 1;
 	old.c_cc[VTIME] = 0;
 	tcsetattr(0, TCSANOW, &old);
-	u_int16_t ch = getchar();
+	ch = (u_int16_t)(getchar());
 	old.c_lflag |= ICANON;
 	old.c_lflag |= ECHO;
 	tcsetattr(0, TCSADRAIN, &old);
+	
 	return ch;
 }
 
