@@ -276,7 +276,8 @@ void runWithMinecraftSet (void) {
 				ch -= 32;
 			}
 			machine.memory[machine.address] = (u_int16_t)(asciiToMc[ch]);
-			if (options.debug) printf (
+			if (options.debug) fprintf (
+				stderr,
 				"debug: got char %c which is %02x -> %02X\n",
 				ch, ch, machine.memory[machine.address]);
 			break;
@@ -386,7 +387,8 @@ u_int16_t readInput (void) {
 // Prints debug information about the state of the CPU if the debug option has
 // been enabled by the user.
 void debugCPUState (void) {
-	if (options.debug) printf (
+	if (options.debug) fprintf (
+		stderr,
 		"debug: %03X: %01X %03X = %04X r%04X *%04X >%01X =%01X <%01X\n",
 		machine.counter, machine.opcode, machine.address,
 		machine.memory[machine.address],
