@@ -134,26 +134,86 @@ void runWithLegacySet (void) {
 			machine.flag_gt, machine.flag_eq, machine.flag_lt);
 
 		switch (opcode) {
-		case 0x0: machine.reg = machine.memory[addr];  break;
-		case 0x1: machine.memory[addr] = machine.reg;  break;
-		case 0x2: machine.memory[addr] = 0;            break;
-		case 0x3: machine.reg += machine.memory[addr]; break;
-		case 0x4: machine.memory[addr] ++;             break;
-		case 0x5: machine.reg -= machine.memory[addr]; break;
-		case 0x6: machine.memory[addr] --;             break;
+		case 0x0:
+			// load value at address to register
+			machine.reg = machine.memory[addr]; 
+			break;
+		case 0x1:
+			// store value of register at address
+			machine.memory[addr] = machine.reg; 
+			break;
+		case 0x2:
+			// set vaue at address to zero
+			machine.memory[addr] = 0;
+			break;
+		case 0x3:
+			// add vaue at address to register
+			machine.reg += machine.memory[addr];
+			break;
+		case 0x4:
+			// increment value at address
+			machine.memory[addr] ++;
+			break;
+		case 0x5:
+			// subtract value at address from register
+			machine.reg -= machine.memory[addr];
+			break;
+		case 0x6:
+			// decrement value at address
+			machine.memory[addr] --;
+			break;
 		case 0x7:
+			// compare value at address against the register, and
+			// set flags accordingly. the results of this operation
+			// are used by the conditional jump operations.
 			machine.flag_gt = machine.memory[addr] >  machine.reg;
 			machine.flag_eq = machine.memory[addr] == machine.reg;
 			machine.flag_lt = machine.memory[addr] <  machine.reg;
 			break;
-		case 0x8:                      { machine.counter = addr - 1; } break;
-		case 0x9: if(machine.flag_gt)  { machine.counter = addr - 1; } break;
-		case 0xa: if(machine.flag_eq)  { machine.counter = addr - 1; } break;
-		case 0xb: if(machine.flag_lt)  { machine.counter = addr - 1; } break;
-		case 0xc: if(!machine.flag_eq) { machine.counter = addr - 1; } break;
-		case 0xd: machine.memory[addr] = readInput();     break;
-		case 0xe: putchar(machine.memory[addr]);       break;
-		case 0xf: return;
+		case 0x8:
+			// unconditionally jump to the address
+			machine.counter = addr - 1;
+			break;
+		case 0x9:
+			// conditionally jump to the address if the greater than
+			// flag is set
+			if (machine.flag_gt) {
+				machine.counter = addr - 1;
+			}
+			break;
+		case 0xa:
+			// conditionally jump to the address if the equal to
+			// flag is set
+			if (machine.flag_eq) {
+				machine.counter = addr - 1;
+			}
+			break;
+		case 0xb:
+			// conditionally jump to the address if the less than
+			// flag is set
+			if (machine.flag_lt) {
+				machine.counter = addr - 1;
+			}
+			break;
+		case 0xc:
+			// conditionally jump to the address if the equal to
+			// flag is *not* set
+			if (!machine.flag_eq) {
+				machine.counter = addr - 1;
+			}
+			break;
+		case 0xd:
+			// read a single character from the input (stdin) and
+			// store it at address
+			machine.memory[addr] = readInput();
+			break;
+		case 0xe:
+			// send the value at address to the output (stdout)
+			putchar(machine.memory[addr]);
+			break;
+		case 0xf:
+			// halt the program
+			return;
 		}
 
 		machine.counter++;
