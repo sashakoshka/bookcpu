@@ -20,15 +20,23 @@ static struct {
 	char *path;
 } options = { 0 };
 
+// machine
+// This struct stores information about the state of the virtual CPU, such as
+// its memory, registers, and the program counter.
+static struct {
+	int flag_gt, flag_eq, flag_lt;
+	int counter;
+	u_int16_t *memory;
+	u_int16_t reg, ptr;
+} machine = { 0 };
+
 // function prototypes
 u_int16_t _getch();
 int parseCommandLineArgs(int, char**);
 
 int main (int argc, char **argv) {
 	// parse command line options
-	if (parseCommandLineArgs(argc, argv)) {
-		goto error;
-	}
+	if (parseCommandLineArgs(argc, argv)) { goto error; }
 
 	if (options.help) {
 		printf("Usage: %s [options] [image]\n", argv[0]);
@@ -46,11 +54,14 @@ int main (int argc, char **argv) {
 		goto error;
 	}
 
-	// open file (or use stdin)
+	// open file (or read directly from stdin)
 	u_int8_t buffer[MEM_SIZE * 2] = {0};
 	FILE *image = NULL;
-	if (options.stdin) image = stdin;
-	else            image = fopen(options.path, "r");
+	if (options.stdin) {
+		image = stdin;
+	} else {
+		image = fopen(options.path, "r");
+	}
 
 	if (image == NULL) {
 		fprintf (
@@ -64,38 +75,38 @@ int main (int argc, char **argv) {
 	int ch, i = 0;
 	while (i < MEM_SIZE && (ch = fgetc(image)) != EOF) {
 		// for some reason they need to be swapped? idfk
+		// TODO: have buffer be 16 bits by default, use bit shifting or
+		// multiplication to put things in memory here. do not cast!
 		buffer[i++] = fgetc(image);
 		buffer[i++] = ch;
 	}
 
 	// cast buffer to u_int_16
-	u_int16_t *memory = (u_int16_t *)buffer;
-	u_int16_t reg = 0, ptr = 0;
-	int counter = 0;
-	int flag_gt = 0, flag_eq = 0, flag_lt = 0;
+	machine.memory = (u_int16_t *)buffer;
 
-	while (counter < MEM_SIZE) {
-		int opcode = memory[counter] >> 12;
-		int addr   = memory[counter] & 0xFFF;
+	while (machine.counter < MEM_SIZE) {
+		int opcode = machine.memory[machine.counter] >> 12;
+		int addr   = machine.memory[machine.counter] & 0xFFF;
 		if (options.debug) printf (
 			"debug: %03X: %01X %03X = %04X r%04X *%04X >%01X =%01X <%01X\n",
-			counter, opcode, addr, memory[addr],
-			reg, ptr, flag_gt, flag_eq, flag_lt);
+			machine.counter, opcode, addr, machine.memory[addr],
+			machine.reg, machine.ptr,
+			machine.flag_gt, machine.flag_eq, machine.flag_lt);
 
 		if (options.minecraft) {
-			if (addr == 0xFFF) addr = ptr;
-			if (counter == 0xFFE) goto exit;
+			if (addr == 0xFFF) addr = machine.ptr;
+			if (machine.counter == 0xFFE) goto exit;
 			
 			switch (opcode) {
-			case 0x0: ptr = memory[addr] & 0xFFF; break;
-			case 0x1: reg = memory[addr];         break;
-			case 0x2: memory[addr] =  reg; break;
-			case 0x3: memory[addr] =  0;   break;
+			case 0x0: machine.ptr = machine.memory[addr] & 0xFFF; break;
+			case 0x1: machine.reg = machine.memory[addr];         break;
+			case 0x2: machine.memory[addr] = machine.reg; break;
+			case 0x3: machine.memory[addr] = 0;           break;
 
-			case 0x4: memory[addr] ++;     break;
-			case 0x5: memory[addr] --;     break;
-			case 0x6: reg += memory[addr]; break;
-			case 0x7: reg -= memory[addr]; break;
+			case 0x4: machine.memory[addr] ++;             break;
+			case 0x5: machine.memory[addr] --;             break;
+			case 0x6: machine.reg += machine.memory[addr]; break;
+			case 0x7: machine.reg -= machine.memory[addr]; break;
 
 			case 0x8: {
 				int ch = _getch();
@@ -106,13 +117,13 @@ int main (int argc, char **argv) {
 				} else if (ch >= 'a' && ch <= 'z') {
 					ch -= 32;
 				}
-				memory[addr] = asciiToMc[ch];
+				machine.memory[addr] = asciiToMc[ch];
 				if (options.debug) printf (
 					"debug: got char %c which is %02x -> %02X\n",
-					ch, ch, memory[addr]);
+					ch, ch, machine.memory[addr]);
 			} break;
 			case 0x9: {
-				int ch = memory[addr] & 0x3F;
+				int ch = machine.memory[addr] & 0x3F;
 
 				// convert minecraft charser codepoint to ASCII
 				// character or ANSI escape code
@@ -132,43 +143,43 @@ int main (int argc, char **argv) {
 				}
 			} break;
 			case 0xa:
-				flag_gt = memory[addr] >  reg;
-				flag_eq = memory[addr] == reg;
-				flag_lt = memory[addr] <  reg;
+				machine.flag_gt = machine.memory[addr] >  machine.reg;
+				machine.flag_eq = machine.memory[addr] == machine.reg;
+				machine.flag_lt = machine.memory[addr] <  machine.reg;
 				break;
-			case 0xb: counter = addr - 1;  break;
+			case 0xb: machine.counter = addr - 1;  break;
 
-			case 0xc: if(flag_gt)  counter = addr - 1; break;
-			case 0xd: if(flag_lt)  counter = addr - 1; break;
-			case 0xe: if(flag_eq)  counter = addr - 1; break;
-			case 0xf: if(!flag_eq) counter = addr - 1; break; 
+			case 0xc: if(machine.flag_gt)  machine.counter = addr - 1; break;
+			case 0xd: if(machine.flag_lt)  machine.counter = addr - 1; break;
+			case 0xe: if(machine.flag_eq)  machine.counter = addr - 1; break;
+			case 0xf: if(!machine.flag_eq) machine.counter = addr - 1; break; 
 			}
 		} else {
 			switch (opcode) {
-			case 0x0: reg = memory[addr];  break;
-			case 0x1: memory[addr] =  reg; break;
-			case 0x2: memory[addr] =  0;   break;
-			case 0x3: reg += memory[addr]; break;
-			case 0x4: memory[addr] ++;     break;
-			case 0x5: reg -= memory[addr]; break;
-			case 0x6: memory[addr] --;     break;
+			case 0x0: machine.reg = machine.memory[addr];  break;
+			case 0x1: machine.memory[addr] = machine.reg;  break;
+			case 0x2: machine.memory[addr] = 0;            break;
+			case 0x3: machine.reg += machine.memory[addr]; break;
+			case 0x4: machine.memory[addr] ++;             break;
+			case 0x5: machine.reg -= machine.memory[addr]; break;
+			case 0x6: machine.memory[addr] --;             break;
 			case 0x7:
-				flag_gt = memory[addr] >  reg;
-				flag_eq = memory[addr] == reg;
-				flag_lt = memory[addr] <  reg;
+				machine.flag_gt = machine.memory[addr] >  machine.reg;
+				machine.flag_eq = machine.memory[addr] == machine.reg;
+				machine.flag_lt = machine.memory[addr] <  machine.reg;
 				break;
-			case 0x8:              { counter = addr - 1; } break;
-			case 0x9: if(flag_gt)  { counter = addr - 1; } break;
-			case 0xa: if(flag_eq)  { counter = addr - 1; } break;
-			case 0xb: if(flag_lt)  { counter = addr - 1; } break;
-			case 0xc: if(!flag_eq) { counter = addr - 1; } break;
-			case 0xd: memory[addr] = _getch(); break;
-			case 0xe: putchar(memory[addr]);    break;
+			case 0x8:                      { machine.counter = addr - 1; } break;
+			case 0x9: if(machine.flag_gt)  { machine.counter = addr - 1; } break;
+			case 0xa: if(machine.flag_eq)  { machine.counter = addr - 1; } break;
+			case 0xb: if(machine.flag_lt)  { machine.counter = addr - 1; } break;
+			case 0xc: if(!machine.flag_eq) { machine.counter = addr - 1; } break;
+			case 0xd: machine.memory[addr] = _getch();     break;
+			case 0xe: putchar(machine.memory[addr]);       break;
 			case 0xf: goto exit;
 			}
 		}
 
-		counter++;
+		machine.counter++;
 	}
 
 	exit:
