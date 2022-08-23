@@ -43,7 +43,7 @@ int main (int argc, char **argv) {
 	FILE *image = NULL;
 	
 	// parse command line options
-	if (parseCommandLineArgs(argc, argv)) { goto error; }
+	if (parseCommandLineArgs(argc, argv)) { return EXIT_FAILURE; }
 
 	if (options.help) {
 		printf("Usage: %s [options] [image]\n", argv[0]);
@@ -53,12 +53,12 @@ int main (int argc, char **argv) {
 		puts("  -x    Read image file from stdin");
 		puts("  -d    Enable debug logging");
 		puts("  -h    Show help");
-		goto exit;
+		return EXIT_SUCCESS;
 	}
 
 	if (options.path == NULL && !options.stdin) {
 		fprintf(stderr, "%s: ERR no image file given\n", argv[0]);
-		goto error;
+		return EXIT_FAILURE;
 	}
 
 	// open file (or read directly from stdin)
@@ -73,7 +73,7 @@ int main (int argc, char **argv) {
 			stderr,
 			"%s: ERR could not open file %s\n", argv[0],
 			options.path);
-		goto error;
+		return EXIT_FAILURE;
 	}
 
 	// read file into buffer
@@ -86,11 +86,7 @@ int main (int argc, char **argv) {
 		runWithLegacySet();
 	}
 
-	exit:
 	return EXIT_SUCCESS;
-
-	error:
-	return EXIT_FAILURE;
 }
 
 // parseCommandLineArgs
