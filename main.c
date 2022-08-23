@@ -33,9 +33,11 @@ static struct {
 } machine = { 0 };
 
 // function prototypes
-u_int16_t readInput(void);
-int  parseCommandLineArgs(int, char**);
-void loadFile(FILE*);
+u_int16_t readInput (void);
+int  parseCommandLineArgs (int, char**);
+void loadFile             (FILE*);
+void runWithLegacySet     (void);
+void runWithMinecraftSet  (void);
 
 int main (int argc, char **argv) {
 	FILE *image = NULL;
@@ -78,102 +80,10 @@ int main (int argc, char **argv) {
 	loadFile(image);
 
 	// run CPU
-	while (machine.counter < MEM_SIZE) {
-		int opcode = machine.memory[machine.counter] >> 12;
-		int addr   = machine.memory[machine.counter] & 0xFFF;
-		if (options.debug) printf (
-			"debug: %03X: %01X %03X = %04X r%04X *%04X >%01X =%01X <%01X\n",
-			machine.counter, opcode, addr, machine.memory[addr],
-			machine.reg, machine.ptr,
-			machine.flag_gt, machine.flag_eq, machine.flag_lt);
-
-		if (options.minecraft) {
-			if (addr == 0xFFF) addr = machine.ptr;
-			if (machine.counter == 0xFFE) goto exit;
-			
-			switch (opcode) {
-			case 0x0: machine.ptr = machine.memory[addr] & 0xFFF; break;
-			case 0x1: machine.reg = machine.memory[addr];         break;
-			case 0x2: machine.memory[addr] = machine.reg; break;
-			case 0x3: machine.memory[addr] = 0;           break;
-
-			case 0x4: machine.memory[addr] ++;             break;
-			case 0x5: machine.memory[addr] --;             break;
-			case 0x6: machine.reg += machine.memory[addr]; break;
-			case 0x7: machine.reg -= machine.memory[addr]; break;
-
-			case 0x8: {
-				int ch = readInput();
-
-				// convert ASCII to minecraft charset
-				if (ch > 127) {
-					ch = 0;
-				} else if (ch >= 'a' && ch <= 'z') {
-					ch -= 32;
-				}
-				machine.memory[addr] = (u_int16_t)(asciiToMc[ch]);
-				if (options.debug) printf (
-					"debug: got char %c which is %02x -> %02X\n",
-					ch, ch, machine.memory[addr]);
-			} break;
-			case 0x9: {
-				int ch = machine.memory[addr] & 0x3F;
-
-				// convert minecraft charser codepoint to ASCII
-				// character or ANSI escape code
-				if (ch < 6) {
-					switch (ch) {
-					case 0: putchar(0);   break;
-					case 1: putchar(EOF); break;
-					case 2: fputs("\033[1A", stdout); break;
-					case 3: fputs("\033[1B", stdout); break;
-					case 4: fputs("\033[1D", stdout); break;
-					case 5: fputs("\033[1C", stdout); break;
-					}
-				} else if (ch < 256 ) {
-					putchar(mcToAscii[ch]);
-				} else {
-					putchar(0);
-				}
-			} break;
-			case 0xa:
-				machine.flag_gt = machine.memory[addr] >  machine.reg;
-				machine.flag_eq = machine.memory[addr] == machine.reg;
-				machine.flag_lt = machine.memory[addr] <  machine.reg;
-				break;
-			case 0xb: machine.counter = addr - 1;  break;
-
-			case 0xc: if(machine.flag_gt)  machine.counter = addr - 1; break;
-			case 0xd: if(machine.flag_lt)  machine.counter = addr - 1; break;
-			case 0xe: if(machine.flag_eq)  machine.counter = addr - 1; break;
-			case 0xf: if(!machine.flag_eq) machine.counter = addr - 1; break; 
-			}
-		} else {
-			switch (opcode) {
-			case 0x0: machine.reg = machine.memory[addr];  break;
-			case 0x1: machine.memory[addr] = machine.reg;  break;
-			case 0x2: machine.memory[addr] = 0;            break;
-			case 0x3: machine.reg += machine.memory[addr]; break;
-			case 0x4: machine.memory[addr] ++;             break;
-			case 0x5: machine.reg -= machine.memory[addr]; break;
-			case 0x6: machine.memory[addr] --;             break;
-			case 0x7:
-				machine.flag_gt = machine.memory[addr] >  machine.reg;
-				machine.flag_eq = machine.memory[addr] == machine.reg;
-				machine.flag_lt = machine.memory[addr] <  machine.reg;
-				break;
-			case 0x8:                      { machine.counter = addr - 1; } break;
-			case 0x9: if(machine.flag_gt)  { machine.counter = addr - 1; } break;
-			case 0xa: if(machine.flag_eq)  { machine.counter = addr - 1; } break;
-			case 0xb: if(machine.flag_lt)  { machine.counter = addr - 1; } break;
-			case 0xc: if(!machine.flag_eq) { machine.counter = addr - 1; } break;
-			case 0xd: machine.memory[addr] = readInput();     break;
-			case 0xe: putchar(machine.memory[addr]);       break;
-			case 0xf: goto exit;
-			}
-		}
-
-		machine.counter++;
+	if (options.minecraft) {
+		runWithMinecraftSet();
+	} else {
+		runWithLegacySet();
 	}
 
 	exit:
@@ -215,6 +125,122 @@ int parseCommandLineArgs (int argc, char **argv) {
 	return 0;
 }
 
+// runWithLegacySet
+// Runs the cpu with the legacy instruction set found in the textbook.
+void runWithLegacySet (void) {
+	while (machine.counter < MEM_SIZE) {
+		int opcode = machine.memory[machine.counter] >> 12;
+		int addr   = machine.memory[machine.counter] & 0xFFF;
+		if (options.debug) printf (
+			"debug: %03X: %01X %03X = %04X r%04X *%04X >%01X =%01X <%01X\n",
+			machine.counter, opcode, addr, machine.memory[addr],
+			machine.reg, machine.ptr,
+			machine.flag_gt, machine.flag_eq, machine.flag_lt);
+
+		switch (opcode) {
+		case 0x0: machine.reg = machine.memory[addr];  break;
+		case 0x1: machine.memory[addr] = machine.reg;  break;
+		case 0x2: machine.memory[addr] = 0;            break;
+		case 0x3: machine.reg += machine.memory[addr]; break;
+		case 0x4: machine.memory[addr] ++;             break;
+		case 0x5: machine.reg -= machine.memory[addr]; break;
+		case 0x6: machine.memory[addr] --;             break;
+		case 0x7:
+			machine.flag_gt = machine.memory[addr] >  machine.reg;
+			machine.flag_eq = machine.memory[addr] == machine.reg;
+			machine.flag_lt = machine.memory[addr] <  machine.reg;
+			break;
+		case 0x8:                      { machine.counter = addr - 1; } break;
+		case 0x9: if(machine.flag_gt)  { machine.counter = addr - 1; } break;
+		case 0xa: if(machine.flag_eq)  { machine.counter = addr - 1; } break;
+		case 0xb: if(machine.flag_lt)  { machine.counter = addr - 1; } break;
+		case 0xc: if(!machine.flag_eq) { machine.counter = addr - 1; } break;
+		case 0xd: machine.memory[addr] = readInput();     break;
+		case 0xe: putchar(machine.memory[addr]);       break;
+		case 0xf: return;
+		}
+
+		machine.counter++;
+	}
+}
+
+// runWithMinecraftSet
+// Runs the cpu with the new instruction set.
+void runWithMinecraftSet (void) {
+	while (machine.counter < MEM_SIZE) {
+		int opcode = machine.memory[machine.counter] >> 12;
+		int addr   = machine.memory[machine.counter] & 0xFFF;
+		if (options.debug) printf (
+			"debug: %03X: %01X %03X = %04X r%04X *%04X >%01X =%01X <%01X\n",
+			machine.counter, opcode, addr, machine.memory[addr],
+			machine.reg, machine.ptr,
+			machine.flag_gt, machine.flag_eq, machine.flag_lt);
+
+		if (addr == 0xFFF) { addr = machine.ptr; }
+		if (machine.counter == 0xFFE) { return; }
+		
+		switch (opcode) {
+		case 0x0: machine.ptr = machine.memory[addr] & 0xFFF; break;
+		case 0x1: machine.reg = machine.memory[addr];         break;
+		case 0x2: machine.memory[addr] = machine.reg; break;
+		case 0x3: machine.memory[addr] = 0;           break;
+
+		case 0x4: machine.memory[addr] ++;             break;
+		case 0x5: machine.memory[addr] --;             break;
+		case 0x6: machine.reg += machine.memory[addr]; break;
+		case 0x7: machine.reg -= machine.memory[addr]; break;
+
+		case 0x8: {
+			int ch = readInput();
+
+			// convert ASCII to minecraft charset
+			if (ch > 127) {
+				ch = 0;
+			} else if (ch >= 'a' && ch <= 'z') {
+				ch -= 32;
+			}
+			machine.memory[addr] = (u_int16_t)(asciiToMc[ch]);
+			if (options.debug) printf (
+				"debug: got char %c which is %02x -> %02X\n",
+				ch, ch, machine.memory[addr]);
+		} break;
+		case 0x9: {
+			int ch = machine.memory[addr] & 0x3F;
+
+			// convert minecraft charser codepoint to ASCII
+			// character or ANSI escape code
+			if (ch < 6) {
+				switch (ch) {
+				case 0: putchar(0);   break;
+				case 1: putchar(EOF); break;
+				case 2: fputs("\033[1A", stdout); break;
+				case 3: fputs("\033[1B", stdout); break;
+				case 4: fputs("\033[1D", stdout); break;
+				case 5: fputs("\033[1C", stdout); break;
+				}
+			} else if (ch < 256 ) {
+				putchar(mcToAscii[ch]);
+			} else {
+				putchar(0);
+			}
+		} break;
+		case 0xa:
+			machine.flag_gt = machine.memory[addr] >  machine.reg;
+			machine.flag_eq = machine.memory[addr] == machine.reg;
+			machine.flag_lt = machine.memory[addr] <  machine.reg;
+			break;
+		case 0xb: machine.counter = addr - 1;  break;
+
+		case 0xc: if(machine.flag_gt)  machine.counter = addr - 1; break;
+		case 0xd: if(machine.flag_lt)  machine.counter = addr - 1; break;
+		case 0xe: if(machine.flag_eq)  machine.counter = addr - 1; break;
+		case 0xf: if(!machine.flag_eq) machine.counter = addr - 1; break; 
+		}
+
+		machine.counter++;
+	}
+}
+
 // loadFile
 // Loads 4096 big-endian 16 bit integers from file into memory cells, starting
 // at address 0.
@@ -237,7 +263,7 @@ void loadFile (FILE *file) {
 // readInput
 // Reads one character of input from stdin. It disables line buffering so that
 // if the user types a key, it is registered instantly.
-u_int16_t readInput() {
+u_int16_t readInput (void) {
 	u_int16_t ch;
 	
 	struct termios old;
