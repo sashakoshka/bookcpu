@@ -27,7 +27,7 @@ static struct {
 static struct {
 	int flag_gt, flag_eq, flag_lt;
 	int counter;
-	u_int16_t *memory;
+	u_int16_t memory[MEM_SIZE];
 	u_int16_t reg, ptr, opcode, address;
 } machine = { 0 };
 
@@ -351,19 +351,14 @@ void runWithMinecraftSet (void) {
 // Loads 4096 big-endian 16 bit integers from file into memory cells, starting
 // at address 0.
 void loadFile (FILE *file) {
-	// TODO: have buffer be 16 bits by default, use bit shifting or
-	// multiplication to put things in memory here. do not cast!
-	
-	u_int8_t buffer[MEM_SIZE * 2] = { 0 };
 	int ch, i = 0;
 	while (i < MEM_SIZE && (ch = fgetc(file)) != EOF) {
-		// for some reason they need to be swapped? idfk
-		buffer[i++] = (u_int8_t)(fgetc(file));
-		buffer[i++] = (u_int8_t)(ch);
+		u_int16_t largeEnd = (u_int16_t)(ch);
+		u_int16_t smallEnd = (u_int16_t)(fgetc(file));
+		
+		machine.memory[i] = largeEnd * 256 + smallEnd;
+		i ++;
 	}
-
-	// cast buffer to u_int_16
-	machine.memory = (u_int16_t *)(buffer);
 }
 
 // readInput
