@@ -200,7 +200,8 @@ void runWithLegacySet (void) {
 			break;
 		case 0xd:
 			// read a single character from the input (stdin) and
-			// store it at address
+			// store it at address. this pauses until a character is
+			// available to read.
 			machine.memory[machine.address] = readInput();
 			break;
 		case 0xe:
@@ -219,6 +220,8 @@ void runWithLegacySet (void) {
 // runWithMinecraftSet
 // Runs the cpu with the new instruction set.
 void runWithMinecraftSet (void) {
+	int ch;
+
 	while (machine.counter < MEM_SIZE) {
 		machine.opcode  = machine.memory[machine.counter] >> 12;
 		machine.address = machine.memory[machine.counter] & 0xFFF;
@@ -228,18 +231,43 @@ void runWithMinecraftSet (void) {
 		if (machine.counter == 0xFFE) { return; }
 		
 		switch (machine.opcode) {
-		case 0x0: machine.ptr = machine.memory[machine.address] & 0xFFF; break;
-		case 0x1: machine.reg = machine.memory[machine.address];         break;
-		case 0x2: machine.memory[machine.address] = machine.reg; break;
-		case 0x3: machine.memory[machine.address] = 0;           break;
-
-		case 0x4: machine.memory[machine.address] ++;             break;
-		case 0x5: machine.memory[machine.address] --;             break;
-		case 0x6: machine.reg += machine.memory[machine.address]; break;
-		case 0x7: machine.reg -= machine.memory[machine.address]; break;
-
-		case 0x8: {
-			int ch = readInput();
+		case 0x0:
+			// load value at address to pointer
+			machine.ptr = machine.memory[machine.address] & 0xFFF;
+			break;
+		case 0x1:
+			// load value at address to register
+			machine.reg = machine.memory[machine.address];
+			break;
+		case 0x2:
+			// store of register at address
+			machine.memory[machine.address] = machine.reg;
+			break;
+		case 0x3:
+			// set value at address to zero
+			machine.memory[machine.address] = 0;
+			break;
+		case 0x4:
+			// increment value at address
+			machine.memory[machine.address] ++;
+			break;
+		case 0x5:
+			// decrement value at address
+			machine.memory[machine.address] --;
+			break;
+		case 0x6:
+			// add value at address to register
+			machine.reg += machine.memory[machine.address];
+			break;
+		case 0x7:
+			// subtract value at address from register
+			machine.reg -= machine.memory[machine.address];
+			break;
+		case 0x8:
+			// read a single character from the input (stdin) and
+			// store it at address. this pauses until a character is
+			// available to read.
+			ch = readInput();
 
 			// convert ASCII to minecraft charset
 			if (ch > 127) {
@@ -251,12 +279,13 @@ void runWithMinecraftSet (void) {
 			if (options.debug) printf (
 				"debug: got char %c which is %02x -> %02X\n",
 				ch, ch, machine.memory[machine.address]);
-		} break;
-		case 0x9: {
-			int ch = machine.memory[machine.address] & 0x3F;
+			break;
+		case 0x9:
+			// send the value at address to the output (stdout)
 
 			// convert minecraft charser codepoint to ASCII
 			// character or ANSI escape code
+			ch = machine.memory[machine.address] & 0x3F;
 			if (ch < 6) {
 				switch (ch) {
 				case 0: putchar(0);   break;
@@ -271,18 +300,47 @@ void runWithMinecraftSet (void) {
 			} else {
 				putchar(0);
 			}
-		} break;
+			break;
 		case 0xa:
+			// compare value at address against the register, and
+			// set flags accordingly. the results of this operation
+			// are used by the conditional jump operations.
 			machine.flag_gt = machine.memory[machine.address] >  machine.reg;
 			machine.flag_eq = machine.memory[machine.address] == machine.reg;
 			machine.flag_lt = machine.memory[machine.address] <  machine.reg;
 			break;
-		case 0xb: machine.counter = machine.address - 1;  break;
-
-		case 0xc: if(machine.flag_gt)  machine.counter = machine.address - 1; break;
-		case 0xd: if(machine.flag_lt)  machine.counter = machine.address - 1; break;
-		case 0xe: if(machine.flag_eq)  machine.counter = machine.address - 1; break;
-		case 0xf: if(!machine.flag_eq) machine.counter = machine.address - 1; break; 
+		case 0xb:
+			// unconditionally jump to the address
+			machine.counter = machine.address - 1;
+			break;
+		case 0xc:
+			// conditionally jump to the address if the greater than
+			// flag is set
+			if (machine.flag_gt) {
+				machine.counter = machine.address - 1;
+			}
+			break;
+		case 0xd:
+			// conditionally jump to the address if the less than
+			// flag is set
+			if (machine.flag_lt) {
+				machine.counter = machine.address - 1;
+			}
+			break;
+		case 0xe:
+			// conditionally jump to the address if the equal to
+			// flag is set
+			if (machine.flag_eq) {
+				machine.counter = machine.address - 1;
+			}
+			break;
+		case 0xf:
+			// conditionally jump to the address if the equal to
+			// flag is *not* set
+			if (!machine.flag_eq) {
+				machine.counter = machine.address - 1;
+			}
+			break;
 		}
 
 		machine.counter++;
