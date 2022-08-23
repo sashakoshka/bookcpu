@@ -32,7 +32,8 @@ static struct {
 
 // function prototypes
 u_int16_t readInput(void);
-int parseCommandLineArgs(int, char**);
+int  parseCommandLineArgs(int, char**);
+void loadFile(FILE*);
 
 int main (int argc, char **argv) {
 	// parse command line options
@@ -55,7 +56,6 @@ int main (int argc, char **argv) {
 	}
 
 	// open file (or read directly from stdin)
-	u_int8_t buffer[MEM_SIZE * 2] = {0};
 	FILE *image = NULL;
 	if (options.stdin) {
 		image = stdin;
@@ -72,18 +72,9 @@ int main (int argc, char **argv) {
 	}
 
 	// read file into buffer
-	int ch, i = 0;
-	while (i < MEM_SIZE && (ch = fgetc(image)) != EOF) {
-		// for some reason they need to be swapped? idfk
-		// TODO: have buffer be 16 bits by default, use bit shifting or
-		// multiplication to put things in memory here. do not cast!
-		buffer[i++] = fgetc(image);
-		buffer[i++] = ch;
-	}
+	loadFile(image);
 
-	// cast buffer to u_int_16
-	machine.memory = (u_int16_t *)buffer;
-
+	// run CPU
 	while (machine.counter < MEM_SIZE) {
 		int opcode = machine.memory[machine.counter] >> 12;
 		int addr   = machine.memory[machine.counter] & 0xFFF;
@@ -221,6 +212,25 @@ int parseCommandLineArgs (int argc, char **argv) {
 	return 0;
 }
 
+// loadFile
+// Loads 4096 big-endian 16 bit integers from file into memory cells, starting
+// at address 0.
+void loadFile (FILE *file) {
+	// TODO: have buffer be 16 bits by default, use bit shifting or
+	// multiplication to put things in memory here. do not cast!
+	
+	u_int8_t buffer[MEM_SIZE * 2] = { 0 };
+	int ch, i = 0;
+	while (i < MEM_SIZE && (ch = fgetc(file)) != EOF) {
+		// for some reason they need to be swapped? idfk
+		buffer[i++] = (u_int8_t)(fgetc(file));
+		buffer[i++] = (u_int8_t)(ch);
+	}
+
+	// cast buffer to u_int_16
+	machine.memory = (u_int16_t *)(buffer);
+}
+
 // readInput
 // Reads one character of input from stdin. It disables line buffering so that
 // if the user types a key, it is registered instantly.
@@ -241,4 +251,3 @@ u_int16_t readInput() {
 	
 	return ch;
 }
-
