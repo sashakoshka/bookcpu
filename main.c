@@ -125,87 +125,87 @@ int parseCommandLineArgs (int argc, char **argv) {
 // Runs the cpu with the legacy instruction set found in the textbook.
 void runWithLegacySet (void) {
 	while (machine.counter < MEM_SIZE) {
-		int opcode = machine.memory[machine.counter] >> 12;
-		int addr   = machine.memory[machine.counter] & 0xFFF;
+		machine.opcode  = machine.memory[machine.counter] >> 12;
+		machine.address = machine.memory[machine.counter] & 0xFFF;
 		debugCPUState();
 
-		switch (opcode) {
+		switch (machine.opcode) {
 		case 0x0:
 			// load value at address to register
-			machine.reg = machine.memory[addr]; 
+			machine.reg = machine.memory[machine.address]; 
 			break;
 		case 0x1:
 			// store value of register at address
-			machine.memory[addr] = machine.reg; 
+			machine.memory[machine.address] = machine.reg; 
 			break;
 		case 0x2:
 			// set vaue at address to zero
-			machine.memory[addr] = 0;
+			machine.memory[machine.address] = 0;
 			break;
 		case 0x3:
 			// add vaue at address to register
-			machine.reg += machine.memory[addr];
+			machine.reg += machine.memory[machine.address];
 			break;
 		case 0x4:
 			// increment value at address
-			machine.memory[addr] ++;
+			machine.memory[machine.address] ++;
 			break;
 		case 0x5:
 			// subtract value at address from register
-			machine.reg -= machine.memory[addr];
+			machine.reg -= machine.memory[machine.address];
 			break;
 		case 0x6:
 			// decrement value at address
-			machine.memory[addr] --;
+			machine.memory[machine.address] --;
 			break;
 		case 0x7:
 			// compare value at address against the register, and
 			// set flags accordingly. the results of this operation
 			// are used by the conditional jump operations.
-			machine.flag_gt = machine.memory[addr] >  machine.reg;
-			machine.flag_eq = machine.memory[addr] == machine.reg;
-			machine.flag_lt = machine.memory[addr] <  machine.reg;
+			machine.flag_gt = machine.memory[machine.address] >  machine.reg;
+			machine.flag_eq = machine.memory[machine.address] == machine.reg;
+			machine.flag_lt = machine.memory[machine.address] <  machine.reg;
 			break;
 		case 0x8:
 			// unconditionally jump to the address
-			machine.counter = addr - 1;
+			machine.counter = machine.address - 1;
 			break;
 		case 0x9:
 			// conditionally jump to the address if the greater than
 			// flag is set
 			if (machine.flag_gt) {
-				machine.counter = addr - 1;
+				machine.counter = machine.address - 1;
 			}
 			break;
 		case 0xa:
 			// conditionally jump to the address if the equal to
 			// flag is set
 			if (machine.flag_eq) {
-				machine.counter = addr - 1;
+				machine.counter = machine.address - 1;
 			}
 			break;
 		case 0xb:
 			// conditionally jump to the address if the less than
 			// flag is set
 			if (machine.flag_lt) {
-				machine.counter = addr - 1;
+				machine.counter = machine.address - 1;
 			}
 			break;
 		case 0xc:
 			// conditionally jump to the address if the equal to
 			// flag is *not* set
 			if (!machine.flag_eq) {
-				machine.counter = addr - 1;
+				machine.counter = machine.address - 1;
 			}
 			break;
 		case 0xd:
 			// read a single character from the input (stdin) and
 			// store it at address
-			machine.memory[addr] = readInput();
+			machine.memory[machine.address] = readInput();
 			break;
 		case 0xe:
 			// send the value at address to the output (stdout)
-			putchar(machine.memory[addr]);
+			putchar(machine.memory[machine.address]);
 			break;
 		case 0xf:
 			// halt the program
@@ -220,23 +220,23 @@ void runWithLegacySet (void) {
 // Runs the cpu with the new instruction set.
 void runWithMinecraftSet (void) {
 	while (machine.counter < MEM_SIZE) {
-		int opcode = machine.memory[machine.counter] >> 12;
-		int addr   = machine.memory[machine.counter] & 0xFFF;
+		machine.opcode  = machine.memory[machine.counter] >> 12;
+		machine.address = machine.memory[machine.counter] & 0xFFF;
 		debugCPUState();
 
-		if (addr == 0xFFF) { addr = machine.ptr; }
+		if (machine.address == 0xFFF) { machine.address = machine.ptr; }
 		if (machine.counter == 0xFFE) { return; }
 		
-		switch (opcode) {
-		case 0x0: machine.ptr = machine.memory[addr] & 0xFFF; break;
-		case 0x1: machine.reg = machine.memory[addr];         break;
-		case 0x2: machine.memory[addr] = machine.reg; break;
-		case 0x3: machine.memory[addr] = 0;           break;
+		switch (machine.opcode) {
+		case 0x0: machine.ptr = machine.memory[machine.address] & 0xFFF; break;
+		case 0x1: machine.reg = machine.memory[machine.address];         break;
+		case 0x2: machine.memory[machine.address] = machine.reg; break;
+		case 0x3: machine.memory[machine.address] = 0;           break;
 
-		case 0x4: machine.memory[addr] ++;             break;
-		case 0x5: machine.memory[addr] --;             break;
-		case 0x6: machine.reg += machine.memory[addr]; break;
-		case 0x7: machine.reg -= machine.memory[addr]; break;
+		case 0x4: machine.memory[machine.address] ++;             break;
+		case 0x5: machine.memory[machine.address] --;             break;
+		case 0x6: machine.reg += machine.memory[machine.address]; break;
+		case 0x7: machine.reg -= machine.memory[machine.address]; break;
 
 		case 0x8: {
 			int ch = readInput();
@@ -247,13 +247,13 @@ void runWithMinecraftSet (void) {
 			} else if (ch >= 'a' && ch <= 'z') {
 				ch -= 32;
 			}
-			machine.memory[addr] = (u_int16_t)(asciiToMc[ch]);
+			machine.memory[machine.address] = (u_int16_t)(asciiToMc[ch]);
 			if (options.debug) printf (
 				"debug: got char %c which is %02x -> %02X\n",
-				ch, ch, machine.memory[addr]);
+				ch, ch, machine.memory[machine.address]);
 		} break;
 		case 0x9: {
-			int ch = machine.memory[addr] & 0x3F;
+			int ch = machine.memory[machine.address] & 0x3F;
 
 			// convert minecraft charser codepoint to ASCII
 			// character or ANSI escape code
@@ -273,16 +273,16 @@ void runWithMinecraftSet (void) {
 			}
 		} break;
 		case 0xa:
-			machine.flag_gt = machine.memory[addr] >  machine.reg;
-			machine.flag_eq = machine.memory[addr] == machine.reg;
-			machine.flag_lt = machine.memory[addr] <  machine.reg;
+			machine.flag_gt = machine.memory[machine.address] >  machine.reg;
+			machine.flag_eq = machine.memory[machine.address] == machine.reg;
+			machine.flag_lt = machine.memory[machine.address] <  machine.reg;
 			break;
-		case 0xb: machine.counter = addr - 1;  break;
+		case 0xb: machine.counter = machine.address - 1;  break;
 
-		case 0xc: if(machine.flag_gt)  machine.counter = addr - 1; break;
-		case 0xd: if(machine.flag_lt)  machine.counter = addr - 1; break;
-		case 0xe: if(machine.flag_eq)  machine.counter = addr - 1; break;
-		case 0xf: if(!machine.flag_eq) machine.counter = addr - 1; break; 
+		case 0xc: if(machine.flag_gt)  machine.counter = machine.address - 1; break;
+		case 0xd: if(machine.flag_lt)  machine.counter = machine.address - 1; break;
+		case 0xe: if(machine.flag_eq)  machine.counter = machine.address - 1; break;
+		case 0xf: if(!machine.flag_eq) machine.counter = machine.address - 1; break; 
 		}
 
 		machine.counter++;
