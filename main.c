@@ -28,8 +28,7 @@ static struct {
 	int flag_gt, flag_eq, flag_lt;
 	int counter;
 	u_int16_t *memory;
-	u_int16_t reg, ptr;
-	int PADDING; // delete this if another 4 bytes are added
+	u_int16_t reg, ptr, opcode, address;
 } machine = { 0 };
 
 // function prototypes
@@ -38,6 +37,7 @@ int  parseCommandLineArgs (int, char**);
 void loadFile             (FILE*);
 void runWithLegacySet     (void);
 void runWithMinecraftSet  (void);
+void debugCPUState        (void);
 
 int main (int argc, char **argv) {
 	FILE *image = NULL;
@@ -127,11 +127,7 @@ void runWithLegacySet (void) {
 	while (machine.counter < MEM_SIZE) {
 		int opcode = machine.memory[machine.counter] >> 12;
 		int addr   = machine.memory[machine.counter] & 0xFFF;
-		if (options.debug) printf (
-			"debug: %03X: %01X %03X = %04X r%04X *%04X >%01X =%01X <%01X\n",
-			machine.counter, opcode, addr, machine.memory[addr],
-			machine.reg, machine.ptr,
-			machine.flag_gt, machine.flag_eq, machine.flag_lt);
+		debugCPUState();
 
 		switch (opcode) {
 		case 0x0:
@@ -226,11 +222,7 @@ void runWithMinecraftSet (void) {
 	while (machine.counter < MEM_SIZE) {
 		int opcode = machine.memory[machine.counter] >> 12;
 		int addr   = machine.memory[machine.counter] & 0xFFF;
-		if (options.debug) printf (
-			"debug: %03X: %01X %03X = %04X r%04X *%04X >%01X =%01X <%01X\n",
-			machine.counter, opcode, addr, machine.memory[addr],
-			machine.reg, machine.ptr,
-			machine.flag_gt, machine.flag_eq, machine.flag_lt);
+		debugCPUState();
 
 		if (addr == 0xFFF) { addr = machine.ptr; }
 		if (machine.counter == 0xFFE) { return; }
@@ -335,4 +327,16 @@ u_int16_t readInput (void) {
 	tcsetattr(0, TCSADRAIN, &old);
 	
 	return ch;
+}
+
+// debugCPUState
+// Prints debug information about the state of the CPU if the debug option has
+// been enabled by the user.
+void debugCPUState (void) {
+	if (options.debug) printf (
+		"debug: %03X: %01X %03X = %04X r%04X *%04X >%01X =%01X <%01X\n",
+		machine.counter, machine.opcode, machine.address,
+		machine.memory[machine.address],
+		machine.reg, machine.ptr,
+		machine.flag_gt, machine.flag_eq, machine.flag_lt);
 }
