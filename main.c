@@ -12,11 +12,12 @@
 // This struct stores information about how the user wants to run the program.
 // The information is collected by parseCommandLineArgs.
 static struct {
-	int minecraft:1;
-	int altch:1;
-	int stdin:1;
-	int debug:1;
-	int help:1;
+	int minecraft;
+	int altch;
+	int stdin;
+	int debug;
+	int help;
+	int PADDING; // delete this if another 4 bytes are added
 	char *path;
 } options = { 0 };
 
@@ -28,6 +29,7 @@ static struct {
 	int counter;
 	u_int16_t *memory;
 	u_int16_t reg, ptr;
+	int PADDING; // delete this if another 4 bytes are added
 } machine = { 0 };
 
 // function prototypes
@@ -36,6 +38,8 @@ int  parseCommandLineArgs(int, char**);
 void loadFile(FILE*);
 
 int main (int argc, char **argv) {
+	FILE *image = NULL;
+	
 	// parse command line options
 	if (parseCommandLineArgs(argc, argv)) { goto error; }
 
@@ -56,7 +60,6 @@ int main (int argc, char **argv) {
 	}
 
 	// open file (or read directly from stdin)
-	FILE *image = NULL;
 	if (options.stdin) {
 		image = stdin;
 	} else {
@@ -108,7 +111,7 @@ int main (int argc, char **argv) {
 				} else if (ch >= 'a' && ch <= 'z') {
 					ch -= 32;
 				}
-				machine.memory[addr] = asciiToMc[ch];
+				machine.memory[addr] = (u_int16_t)(asciiToMc[ch]);
 				if (options.debug) printf (
 					"debug: got char %c which is %02x -> %02X\n",
 					ch, ch, machine.memory[addr]);
